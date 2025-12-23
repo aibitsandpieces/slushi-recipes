@@ -39,20 +39,38 @@ Set these environment variables for configuration:
 
 Uploaded images are stored in the `/uploads` directory and served at `/uploads/<filename>`.
 
-## GPT Actions Integration
+## Custom GPT Integration
 
-The app exposes an API endpoint for creating recipes from a Custom GPT.
+This section contains everything you need to configure a Custom GPT Action.
 
-### Endpoint
+### Quick Reference (Copy These Values)
 
-`POST /api/gpt/recipes`
+| Setting | Value |
+|---------|-------|
+| **Base URL** | Your deployed Replit app URL (e.g., `https://your-app.replit.app`) |
+| **Endpoint Path** | `/api/gpt/recipes` |
+| **HTTP Method** | `POST` |
+| **Auth Header** | `X-API-Key` |
+| **Auth Type** | API Key (in header) |
+| **Environment Variable** | `API_KEY` |
+| **OpenAPI Schema URL** | `/api/openapi.json` |
+
+### Step-by-Step Setup
+
+1. **Get your Base URL**: After publishing, your app URL will be `https://your-app-name.replit.app`
+2. **Get the OpenAPI Schema**: Visit `https://your-app-url/api/openapi.json` and copy the full JSON
+3. **In ChatGPT**: Create a new GPT, go to "Configure" > "Actions" > "Create new action"
+4. **Paste the Schema**: Paste the OpenAPI JSON into the schema field
+5. **Set Authentication**: Choose "API Key", set header name to `X-API-Key`, and enter your API key value
 
 ### Authentication
 
 Include your API key in the request header:
 ```
-X-API-Key: your-api-key
+X-API-Key: <your-api-key-value>
 ```
+
+The API key is stored in the `API_KEY` environment variable (set in Replit Secrets).
 
 ### Example Payload (Cocktail)
 
@@ -108,9 +126,24 @@ X-API-Key: your-api-key
 - Maximum batch volume: 1890ml
 - Only liquid ingredients with amounts in ml
 
+### Example cURL Request
+
+```bash
+curl -X POST https://your-app.replit.app/api/gpt/recipes \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: your-api-key" \
+  -d '{
+    "name": "Test Cocktail",
+    "type": "cocktail",
+    "tags": ["test"],
+    "ingredients": [{"text": "50 ml vodka"}],
+    "method": ["Stir and serve"]
+  }'
+```
+
 ### OpenAPI Schema
 
-Access the OpenAPI schema at `/api/openapi.json` for use in GPT Actions configuration.
+Access the OpenAPI schema at `/api/openapi.json` for use in GPT Actions configuration. The schema automatically includes the correct server URL based on your deployment.
 
 ## SLUSHi Scaling
 

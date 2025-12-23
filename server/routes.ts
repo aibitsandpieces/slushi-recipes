@@ -326,33 +326,31 @@ export async function registerRoutes(
     }
   });
 
-  // OpenAPI schema endpoint
+  // OpenAPI schema endpoint - dynamically set server URL
   app.get("/api/openapi.json", (req, res) => {
-    res.json(openApiSchema);
+    const host = req.get("host") || "localhost:5000";
+    const protocol = req.get("x-forwarded-proto") || req.protocol || "https";
+    const baseUrl = `${protocol}://${host}`;
+    
+    const schema = {
+      ...openApiSchema,
+      servers: [{ url: baseUrl }],
+    };
+    res.json(schema);
   });
 
   return httpServer;
 }
 
-// OpenAPI schema for GPT Actions
+// OpenAPI schema for GPT Actions (servers array is set dynamically in the endpoint)
 const openApiSchema = {
   openapi: "3.1.0",
   info: {
     title: "Cocktail & SLUSHi Recipe Library API",
     version: "1.0.0",
-    description: "API for creating recipes in the Cocktail & SLUSHi Recipe Library",
+    description: "API for creating recipes in the Cocktail & SLUSHi Recipe Library. Use X-API-Key header for authentication.",
   },
-  servers: [
-    {
-      url: "{server_url}",
-      variables: {
-        server_url: {
-          default: "https://your-replit-url.replit.app",
-          description: "The URL of the deployed Recipe Library",
-        },
-      },
-    },
-  ],
+  servers: [] as { url: string }[],
   paths: {
     "/api/gpt/recipes": {
       post: {
