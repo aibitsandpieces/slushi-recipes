@@ -8,6 +8,7 @@ import path from "path";
 import fs from "fs";
 import session from "express-session";
 import { z } from "zod";
+import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -60,7 +61,10 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Serve uploaded images
+  // Register object storage routes for persistent image storage
+  registerObjectStorageRoutes(app);
+  
+  // Serve uploaded images (legacy local storage - fallback for old images)
   app.use("/uploads", (req, res, next) => {
     const filePath = path.join(uploadsDir, req.path);
     if (fs.existsSync(filePath)) {
@@ -127,10 +131,10 @@ export async function registerRoutes(
     }
   });
 
-  // Create recipe (form data with image)
+  // Create recipe (form data with image path from object storage)
   app.post("/api/recipes", requireAuth, upload.single("image"), async (req, res) => {
     try {
-      const { name, type, tags: tagsJson, ingredients: ingredientsJson, method: methodJson, notes, baseVolumeMl, mode, existingImagePath } = req.body;
+      const { name, type, tags: tagsJson, ingredients: ingredientsJson, method: methodJson, notes, baseVolumeMl, mode, imagePath: imagePathFromBody } = req.body;
       
       const parsedTags = tagsJson ? JSON.parse(tagsJson) : [];
       const parsedIngredients = ingredientsJson ? JSON.parse(ingredientsJson) : [];
@@ -150,12 +154,10 @@ export async function registerRoutes(
       const tagRecords = await storage.getOrCreateTags(parsedTags);
       const tagIds = tagRecords.map((t) => t.id);
       
-      // Handle image path
-      let imagePath = null;
+      // Handle image path - support both object storage paths and legacy file uploads
+      let imagePath = imagePathFromBody || null;
       if (req.file) {
         imagePath = `/uploads/${req.file.filename}`;
-      } else if (existingImagePath) {
-        imagePath = existingImagePath;
       }
       
       const recipe = await storage.createRecipe(
@@ -183,7 +185,7 @@ export async function registerRoutes(
   // Update recipe
   app.put("/api/recipes/:id", requireAuth, upload.single("image"), async (req, res) => {
     try {
-      const { name, type, tags: tagsJson, ingredients: ingredientsJson, method: methodJson, notes, baseVolumeMl, mode, existingImagePath } = req.body;
+      const { name, type, tags: tagsJson, ingredients: ingredientsJson, method: methodJson, notes, baseVolumeMl, mode, imagePath: imagePathFromBody } = req.body;
       
       const parsedTags = tagsJson ? JSON.parse(tagsJson) : [];
       const parsedIngredients = ingredientsJson ? JSON.parse(ingredientsJson) : [];
@@ -203,8 +205,8 @@ export async function registerRoutes(
       const tagRecords = await storage.getOrCreateTags(parsedTags);
       const tagIds = tagRecords.map((t) => t.id);
       
-      // Handle image path
-      let imagePath = existingImagePath || null;
+      // Handle image path - support both object storage paths and legacy file uploads
+      let imagePath = imagePathFromBody || null;
       if (req.file) {
         imagePath = `/uploads/${req.file.filename}`;
       }

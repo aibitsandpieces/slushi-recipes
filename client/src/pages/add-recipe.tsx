@@ -31,9 +31,7 @@ export default function AddRecipePage() {
   const [method, setMethod] = useState<string[]>([""]);
   const [notes, setNotes] = useState("");
   const [mode, setMode] = useState("");
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [existingImagePath, setExistingImagePath] = useState<string | null>(null);
+  const [imagePath, setImagePath] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const { data: allTags = [] } = useQuery<Tag[]>({
@@ -53,7 +51,7 @@ export default function AddRecipePage() {
       setMethod(existingRecipe.method);
       setNotes(existingRecipe.notes || "");
       setMode(existingRecipe.mode || "");
-      setExistingImagePath(existingRecipe.imagePath);
+      setImagePath(existingRecipe.imagePath);
       
       if (existingRecipe.type === "cocktail") {
         setCocktailIngredients(existingRecipe.ingredients as CocktailIngredient[]);
@@ -63,14 +61,13 @@ export default function AddRecipePage() {
     }
   }, [existingRecipe]);
 
-  useEffect(() => {
-    if (imageFile) {
-      const url = URL.createObjectURL(imageFile);
-      setImagePreview(url);
-      return () => URL.revokeObjectURL(url);
+  function handleImageSelect(_file: File | null, objectPath?: string) {
+    if (objectPath) {
+      setImagePath(objectPath);
+    } else {
+      setImagePath(null);
     }
-    setImagePreview(null);
-  }, [imageFile]);
+  }
 
   const createMutation = useMutation({
     mutationFn: async (formData: FormData) => {
@@ -157,10 +154,8 @@ export default function AddRecipePage() {
       if (mode) formData.append("mode", mode);
     }
     
-    if (imageFile) {
-      formData.append("image", imageFile);
-    } else if (existingImagePath) {
-      formData.append("existingImagePath", existingImagePath);
+    if (imagePath) {
+      formData.append("imagePath", imagePath);
     }
     
     createMutation.mutate(formData);
@@ -230,9 +225,8 @@ export default function AddRecipePage() {
               <div className="space-y-2">
                 <Label>Image</Label>
                 <ImageUpload
-                  currentImage={existingImagePath}
-                  previewUrl={imagePreview}
-                  onImageSelect={setImageFile}
+                  currentImage={imagePath}
+                  onImageSelect={handleImageSelect}
                 />
               </div>
               
