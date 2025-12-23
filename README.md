@@ -41,36 +41,51 @@ Uploaded images are stored in the `/uploads` directory and served at `/uploads/<
 
 ## Custom GPT Integration
 
-This section contains everything you need to configure a Custom GPT Action.
+This section contains everything you need to configure a ChatGPT Custom GPT Action.
 
-### Quick Reference (Copy These Values)
+### Quick Reference
 
 | Setting | Value |
 |---------|-------|
-| **Base URL** | Your deployed Replit app URL (e.g., `https://your-app.replit.app`) |
-| **Endpoint Path** | `/api/gpt/recipes` |
-| **HTTP Method** | `POST` |
-| **Auth Header** | `X-API-Key` |
-| **Auth Type** | API Key (in header) |
-| **Environment Variable** | `API_KEY` |
-| **OpenAPI Schema URL** | `/api/openapi.json` |
+| **Schema URL** | `https://your-app.replit.app/api/openapi.json` |
+| **OpenAPI Version** | 3.0.3 |
+| **Authentication** | API Key in header |
+| **Header Name** | `X-API-Key` |
+| **Endpoint** | `POST /api/gpt/recipes` |
 
-### Step-by-Step Setup
+### Step-by-Step ChatGPT Actions Setup
 
-1. **Get your Base URL**: After publishing, your app URL will be `https://your-app-name.replit.app`
-2. **Get the OpenAPI Schema**: Visit `https://your-app-url/api/openapi.json` and copy the full JSON
-3. **In ChatGPT**: Create a new GPT, go to "Configure" > "Actions" > "Create new action"
-4. **Paste the Schema**: Paste the OpenAPI JSON into the schema field
-5. **Set Authentication**: Choose "API Key", set header name to `X-API-Key`, and enter your API key value
+1. **Publish your app** and note the URL (e.g., `https://cocktail-library.replit.app`)
+
+2. **Get the OpenAPI schema**: Open `https://your-app-url/api/openapi.json` in your browser. The schema automatically includes the correct server URL.
+
+3. **Create a Custom GPT**:
+   - Go to ChatGPT > Explore GPTs > Create
+   - Click "Configure" tab
+   - Scroll down to "Actions" and click "Create new action"
+
+4. **Import the schema**:
+   - Copy the entire JSON from step 2
+   - Paste it into the "Schema" field
+   - ChatGPT should detect one action: `createRecipe`
+
+5. **Configure authentication**:
+   - Click the gear icon next to "Authentication"
+   - Select "API Key"
+   - Auth Type: "Custom"
+   - Custom Header Name: `X-API-Key`
+   - API Key: Enter your API_KEY value from Replit Secrets
+
+6. **Save and test**: Try asking your GPT to create a test recipe
 
 ### Authentication
 
-Include your API key in the request header:
+The API uses header-based API key authentication:
 ```
-X-API-Key: <your-api-key-value>
+X-API-Key: your-api-key-value
 ```
 
-The API key is stored in the `API_KEY` environment variable (set in Replit Secrets).
+Set the `API_KEY` environment variable in Replit Secrets.
 
 ### Example Payload (Cocktail)
 

@@ -342,13 +342,13 @@ export async function registerRoutes(
   return httpServer;
 }
 
-// OpenAPI schema for GPT Actions (servers array is set dynamically in the endpoint)
+// OpenAPI 3.0.3 schema for ChatGPT Actions (servers array is set dynamically in the endpoint)
 const openApiSchema = {
-  openapi: "3.1.0",
+  openapi: "3.0.3",
   info: {
     title: "Cocktail & SLUSHi Recipe Library API",
     version: "1.0.0",
-    description: "API for creating recipes in the Cocktail & SLUSHi Recipe Library. Use X-API-Key header for authentication.",
+    description: "API for creating recipes in the Cocktail & SLUSHi Recipe Library. Authenticate using the X-API-Key header.",
   },
   servers: [] as { url: string }[],
   paths: {
@@ -356,75 +356,14 @@ const openApiSchema = {
       post: {
         operationId: "createRecipe",
         summary: "Create a new cocktail or SLUSHi recipe",
-        description: "Creates a new recipe. SLUSHi recipes must have a base volume between 475ml and 1890ml.",
-        security: [{ apiKey: [] }],
+        description: "Creates a new recipe. For SLUSHi recipes, the total ingredient volume must be between 475ml and 1890ml.",
+        security: [{ ApiKeyAuth: [] }],
         requestBody: {
           required: true,
           content: {
             "application/json": {
               schema: {
-                type: "object",
-                required: ["name", "type", "ingredients", "method"],
-                properties: {
-                  name: {
-                    type: "string",
-                    description: "Name of the recipe",
-                  },
-                  type: {
-                    type: "string",
-                    enum: ["cocktail", "slushi"],
-                    description: "Type of recipe",
-                  },
-                  tags: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "Tags for categorization",
-                  },
-                  ingredients: {
-                    oneOf: [
-                      {
-                        type: "array",
-                        description: "Cocktail ingredients (flexible text format)",
-                        items: {
-                          type: "object",
-                          required: ["text"],
-                          properties: {
-                            text: { type: "string", description: "Ingredient description (e.g., '50 ml gin')" },
-                          },
-                        },
-                      },
-                      {
-                        type: "array",
-                        description: "SLUSHi ingredients (structured with ml amounts)",
-                        items: {
-                          type: "object",
-                          required: ["name", "amount_ml"],
-                          properties: {
-                            name: { type: "string", description: "Ingredient name" },
-                            amount_ml: { type: "number", description: "Amount in milliliters" },
-                          },
-                        },
-                      },
-                    ],
-                  },
-                  method: {
-                    type: "array",
-                    items: { type: "string" },
-                    description: "List of method steps",
-                  },
-                  notes: {
-                    type: "string",
-                    description: "Optional notes about the recipe",
-                  },
-                  base_volume_ml: {
-                    type: "number",
-                    description: "Base volume for SLUSHi recipes (475-1890ml). If not provided, calculated from ingredients.",
-                  },
-                  mode: {
-                    type: "string",
-                    description: "Optional mode for SLUSHi recipes (e.g., 'Slush', 'Frozen Cocktail')",
-                  },
-                },
+                $ref: "#/components/schemas/CreateRecipeRequest",
               },
             },
           },
@@ -435,12 +374,7 @@ const openApiSchema = {
             content: {
               "application/json": {
                 schema: {
-                  type: "object",
-                  properties: {
-                    success: { type: "boolean" },
-                    id: { type: "string", description: "ID of created recipe" },
-                    recipe: { type: "object", description: "The created recipe with tags" },
-                  },
+                  $ref: "#/components/schemas/CreateRecipeResponse",
                 },
               },
             },
@@ -450,26 +384,20 @@ const openApiSchema = {
             content: {
               "application/json": {
                 schema: {
-                  type: "object",
-                  properties: {
-                    error: { type: "string" },
-                    details: {
-                      type: "array",
-                      items: {
-                        type: "object",
-                        properties: {
-                          path: { type: "string" },
-                          message: { type: "string" },
-                        },
-                      },
-                    },
-                  },
+                  $ref: "#/components/schemas/ErrorResponse",
                 },
               },
             },
           },
           "401": {
-            description: "Invalid API key",
+            description: "Invalid or missing API key",
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/ErrorResponse",
+                },
+              },
+            },
           },
         },
       },
@@ -477,11 +405,124 @@ const openApiSchema = {
   },
   components: {
     securitySchemes: {
-      apiKey: {
+      ApiKeyAuth: {
         type: "apiKey",
         in: "header",
         name: "X-API-Key",
-        description: "API key for GPT Actions authentication",
+        description: "API key for authentication",
+      },
+    },
+    schemas: {
+      CocktailIngredient: {
+        type: "object",
+        required: ["text"],
+        properties: {
+          text: {
+            type: "string",
+            description: "Ingredient description (e.g., '50 ml gin', '2 dashes bitters')",
+          },
+        },
+      },
+      SlushiIngredient: {
+        type: "object",
+        required: ["name", "amount_ml"],
+        properties: {
+          name: {
+            type: "string",
+            description: "Ingredient name",
+          },
+          amount_ml: {
+            type: "number",
+            description: "Amount in milliliters",
+          },
+        },
+      },
+      CreateRecipeRequest: {
+        type: "object",
+        required: ["name", "type", "ingredients", "method"],
+        properties: {
+          name: {
+            type: "string",
+            description: "Name of the recipe",
+          },
+          type: {
+            type: "string",
+            enum: ["cocktail", "slushi"],
+            description: "Type of recipe: 'cocktail' for standard drinks, 'slushi' for Ninja SLUSHi frozen drinks",
+          },
+          tags: {
+            type: "array",
+            items: { type: "string" },
+            description: "Tags for categorization (e.g., 'rum', 'refreshing', 'summer')",
+          },
+          ingredients: {
+            type: "array",
+            description: "For cocktails: array of {text} objects. For slushi: array of {name, amount_ml} objects.",
+            items: {
+              type: "object",
+              properties: {
+                text: { type: "string" },
+                name: { type: "string" },
+                amount_ml: { type: "number" },
+              },
+            },
+          },
+          method: {
+            type: "array",
+            items: { type: "string" },
+            description: "List of preparation steps",
+          },
+          notes: {
+            type: "string",
+            description: "Optional notes about the recipe",
+          },
+          base_volume_ml: {
+            type: "number",
+            description: "Base volume for SLUSHi recipes (475-1890ml). Auto-calculated from ingredients if not provided.",
+          },
+          mode: {
+            type: "string",
+            enum: ["Slush", "Spiked Slush", "Frozen Cocktail", "Frappe", "Milkshake", "Frozen Juice"],
+            description: "SLUSHi machine mode. Only used for slushi type recipes.",
+          },
+        },
+      },
+      CreateRecipeResponse: {
+        type: "object",
+        properties: {
+          success: {
+            type: "boolean",
+            description: "Whether the recipe was created successfully",
+          },
+          id: {
+            type: "integer",
+            description: "ID of the created recipe",
+          },
+          recipe: {
+            type: "object",
+            description: "The created recipe object with all fields and tags",
+          },
+        },
+      },
+      ErrorResponse: {
+        type: "object",
+        properties: {
+          error: {
+            type: "string",
+            description: "Error message",
+          },
+          details: {
+            type: "array",
+            description: "Detailed validation errors (for 400 responses)",
+            items: {
+              type: "object",
+              properties: {
+                path: { type: "string" },
+                message: { type: "string" },
+              },
+            },
+          },
+        },
       },
     },
   },
