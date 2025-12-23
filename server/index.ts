@@ -23,6 +23,11 @@ declare module "express-session" {
 
 const PgSession = connectPgSimple(session);
 
+// Trust proxy for production (Replit uses reverse proxies)
+if (process.env.NODE_ENV === "production") {
+  app.set("trust proxy", 1);
+}
+
 app.use(
   session({
     store: new PgSession({
@@ -36,6 +41,7 @@ app.use(
     cookie: {
       secure: process.env.NODE_ENV === "production",
       httpOnly: true,
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
     },
   })
