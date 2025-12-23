@@ -1,3 +1,4 @@
+import { useRef, useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -57,9 +58,19 @@ function CocktailIngredients({ ingredients, onChange }: CocktailIngredientInputP
 function SlushiIngredients({ ingredients, onChange }: SlushiIngredientInputProps) {
   const totalVolume = ingredients.reduce((sum, ing) => sum + (ing.amount_ml || 0), 0);
   const isValidVolume = totalVolume >= SLUSHI_MIN_VOLUME && totalVolume <= SLUSHI_MAX_VOLUME;
+  const [focusNewInput, setFocusNewInput] = useState(false);
+  const lastInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (focusNewInput && lastInputRef.current) {
+      lastInputRef.current.focus();
+      setFocusNewInput(false);
+    }
+  }, [focusNewInput, ingredients.length]);
 
   function addIngredient() {
     onChange([...ingredients, { name: "", amount_ml: 0 }]);
+    setFocusNewInput(true);
   }
 
   function updateIngredient(index: number, field: keyof SlushiIngredient, value: string | number) {
@@ -97,6 +108,7 @@ function SlushiIngredients({ ingredients, onChange }: SlushiIngredientInputProps
         {ingredients.map((ing, index) => (
           <div key={index} className="flex items-center gap-2" data-testid={`row-ingredient-${index}`}>
             <Input
+              ref={index === ingredients.length - 1 ? lastInputRef : undefined}
               value={ing.name}
               onChange={(e) => updateIngredient(index, "name", e.target.value)}
               placeholder="Ingredient name"

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TagInput } from "@/components/tag-input";
 import { IngredientInput } from "@/components/ingredient-input";
 import { MethodInput } from "@/components/method-input";
@@ -268,13 +269,18 @@ export default function AddRecipePage() {
               {type === "slushi" && (
                 <div className="space-y-2">
                   <Label htmlFor="mode">Mode (optional)</Label>
-                  <Input
-                    id="mode"
-                    value={mode}
-                    onChange={(e) => setMode(e.target.value)}
-                    placeholder="e.g., Slush, Frozen Cocktail"
-                    data-testid="input-mode"
-                  />
+                  <Select value={mode} onValueChange={setMode}>
+                    <SelectTrigger data-testid="select-mode">
+                      <SelectValue placeholder="Select a mode" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="slush">Slush</SelectItem>
+                      <SelectItem value="spiked-slush">Spiked Slush / Frozen Cocktail</SelectItem>
+                      <SelectItem value="frappe">Frappe</SelectItem>
+                      <SelectItem value="milkshake">Milkshake</SelectItem>
+                      <SelectItem value="frozen-juice">Frozen Juice</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
               
