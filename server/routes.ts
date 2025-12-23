@@ -1,16 +1,490 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { apiRecipePayloadSchema, SLUSHI_MIN_VOLUME, SLUSHI_MAX_VOLUME } from "@shared/schema";
+import type { SlushiIngredient, RecipeType } from "@shared/schema";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+import session from "express-session";
+import { z } from "zod";
+
+// Ensure uploads directory exists
+const uploadsDir = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configure multer for image uploads
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: uploadsDir,
+    filename: (req, file, cb) => {
+      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+      cb(null, uniqueSuffix + path.extname(file.originalname));
+    },
+  }),
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
+    if (allowedTypes.includes(file.mimetype)) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type"));
+    }
+  },
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+});
+
+// Get app password from environment or use default for development
+const APP_PASSWORD = process.env.APP_PASSWORD || "cocktails123";
+const API_KEY = process.env.API_KEY || "recipe-api-key-123";
+
+// Session authentication middleware
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (req.session?.authenticated) {
+    return next();
+  }
+  res.status(401).json({ error: "Unauthorized" });
+}
+
+// API key authentication middleware
+function requireApiKey(req: Request, res: Response, next: NextFunction) {
+  const apiKey = req.headers["x-api-key"] || req.headers["authorization"]?.replace("Bearer ", "");
+  if (apiKey === API_KEY) {
+    return next();
+  }
+  res.status(401).json({ error: "Invalid API key" });
+}
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+  // Serve uploaded images
+  app.use("/uploads", (req, res, next) => {
+    const filePath = path.join(uploadsDir, req.path);
+    if (fs.existsSync(filePath)) {
+      res.sendFile(filePath);
+    } else {
+      res.status(404).send("Image not found");
+    }
+  });
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+  // Auth routes
+  app.post("/api/auth/login", (req, res) => {
+    const { password } = req.body;
+    if (password === APP_PASSWORD) {
+      req.session.authenticated = true;
+      res.json({ success: true });
+    } else {
+      res.status(401).json({ error: "Invalid password" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      res.json({ success: true });
+    });
+  });
+
+  app.get("/api/auth/check", (req, res) => {
+    if (req.session?.authenticated) {
+      res.json({ authenticated: true });
+    } else {
+      res.status(401).json({ authenticated: false });
+    }
+  });
+
+  // Tags routes
+  app.get("/api/tags", requireAuth, async (req, res) => {
+    try {
+      const allTags = await storage.getAllTags();
+      res.json(allTags);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch tags" });
+    }
+  });
+
+  // Recipes routes
+  app.get("/api/recipes", requireAuth, async (req, res) => {
+    try {
+      const allRecipes = await storage.getAllRecipes();
+      res.json(allRecipes);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch recipes" });
+    }
+  });
+
+  app.get("/api/recipes/:id", requireAuth, async (req, res) => {
+    try {
+      const recipe = await storage.getRecipeById(req.params.id);
+      if (!recipe) {
+        return res.status(404).json({ error: "Recipe not found" });
+      }
+      res.json(recipe);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch recipe" });
+    }
+  });
+
+  // Create recipe (form data with image)
+  app.post("/api/recipes", requireAuth, upload.single("image"), async (req, res) => {
+    try {
+      const { name, type, tags: tagsJson, ingredients: ingredientsJson, method: methodJson, notes, baseVolumeMl, mode, existingImagePath } = req.body;
+      
+      const parsedTags = tagsJson ? JSON.parse(tagsJson) : [];
+      const parsedIngredients = ingredientsJson ? JSON.parse(ingredientsJson) : [];
+      const parsedMethod = methodJson ? JSON.parse(methodJson) : [];
+      
+      // Validate SLUSHi volume
+      if (type === "slushi") {
+        const totalVolume = parsedIngredients.reduce((sum: number, i: SlushiIngredient) => sum + (i.amount_ml || 0), 0);
+        if (totalVolume < SLUSHI_MIN_VOLUME || totalVolume > SLUSHI_MAX_VOLUME) {
+          return res.status(400).json({
+            error: `SLUSHi recipes must have a total volume between ${SLUSHI_MIN_VOLUME}ml and ${SLUSHI_MAX_VOLUME}ml (current: ${totalVolume}ml)`,
+          });
+        }
+      }
+      
+      // Get or create tags
+      const tagRecords = await storage.getOrCreateTags(parsedTags);
+      const tagIds = tagRecords.map((t) => t.id);
+      
+      // Handle image path
+      let imagePath = null;
+      if (req.file) {
+        imagePath = `/uploads/${req.file.filename}`;
+      } else if (existingImagePath) {
+        imagePath = existingImagePath;
+      }
+      
+      const recipe = await storage.createRecipe(
+        {
+          name,
+          type: type as RecipeType,
+          imagePath,
+          ingredients: parsedIngredients,
+          method: parsedMethod,
+          notes: notes || null,
+          baseVolumeMl: baseVolumeMl ? parseInt(baseVolumeMl) : null,
+          mode: mode || null,
+          favourite: false,
+        },
+        tagIds
+      );
+      
+      res.json(recipe);
+    } catch (error) {
+      console.error("Create recipe error:", error);
+      res.status(500).json({ error: "Failed to create recipe" });
+    }
+  });
+
+  // Update recipe
+  app.put("/api/recipes/:id", requireAuth, upload.single("image"), async (req, res) => {
+    try {
+      const { name, type, tags: tagsJson, ingredients: ingredientsJson, method: methodJson, notes, baseVolumeMl, mode, existingImagePath } = req.body;
+      
+      const parsedTags = tagsJson ? JSON.parse(tagsJson) : [];
+      const parsedIngredients = ingredientsJson ? JSON.parse(ingredientsJson) : [];
+      const parsedMethod = methodJson ? JSON.parse(methodJson) : [];
+      
+      // Validate SLUSHi volume
+      if (type === "slushi") {
+        const totalVolume = parsedIngredients.reduce((sum: number, i: SlushiIngredient) => sum + (i.amount_ml || 0), 0);
+        if (totalVolume < SLUSHI_MIN_VOLUME || totalVolume > SLUSHI_MAX_VOLUME) {
+          return res.status(400).json({
+            error: `SLUSHi recipes must have a total volume between ${SLUSHI_MIN_VOLUME}ml and ${SLUSHI_MAX_VOLUME}ml (current: ${totalVolume}ml)`,
+          });
+        }
+      }
+      
+      // Get or create tags
+      const tagRecords = await storage.getOrCreateTags(parsedTags);
+      const tagIds = tagRecords.map((t) => t.id);
+      
+      // Handle image path
+      let imagePath = existingImagePath || null;
+      if (req.file) {
+        imagePath = `/uploads/${req.file.filename}`;
+      }
+      
+      const recipe = await storage.updateRecipe(
+        req.params.id,
+        {
+          name,
+          type: type as RecipeType,
+          imagePath,
+          ingredients: parsedIngredients,
+          method: parsedMethod,
+          notes: notes || null,
+          baseVolumeMl: baseVolumeMl ? parseInt(baseVolumeMl) : null,
+          mode: mode || null,
+        },
+        tagIds
+      );
+      
+      if (!recipe) {
+        return res.status(404).json({ error: "Recipe not found" });
+      }
+      
+      res.json(recipe);
+    } catch (error) {
+      console.error("Update recipe error:", error);
+      res.status(500).json({ error: "Failed to update recipe" });
+    }
+  });
+
+  // Partial update (for toggling favourite)
+  app.patch("/api/recipes/:id", requireAuth, async (req, res) => {
+    try {
+      const recipe = await storage.updateRecipe(req.params.id, req.body);
+      if (!recipe) {
+        return res.status(404).json({ error: "Recipe not found" });
+      }
+      res.json(recipe);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to update recipe" });
+    }
+  });
+
+  // Delete recipe
+  app.delete("/api/recipes/:id", requireAuth, async (req, res) => {
+    try {
+      const success = await storage.deleteRecipe(req.params.id);
+      if (!success) {
+        return res.status(404).json({ error: "Recipe not found" });
+      }
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete recipe" });
+    }
+  });
+
+  // GPT Actions API endpoint
+  app.post("/api/gpt/recipes", requireApiKey, async (req, res) => {
+    try {
+      const validation = apiRecipePayloadSchema.safeParse(req.body);
+      if (!validation.success) {
+        return res.status(400).json({
+          error: "Validation failed",
+          details: validation.error.errors.map((e) => ({
+            path: e.path.join("."),
+            message: e.message,
+          })),
+        });
+      }
+      
+      const data = validation.data;
+      
+      // For SLUSHi, validate volume
+      if (data.type === "slushi") {
+        const ingredients = data.ingredients as SlushiIngredient[];
+        const totalVolume = ingredients.reduce((sum, i) => sum + (i.amount_ml || 0), 0);
+        const baseVolume = data.base_volume_ml || totalVolume;
+        
+        if (baseVolume < SLUSHI_MIN_VOLUME || baseVolume > SLUSHI_MAX_VOLUME) {
+          return res.status(400).json({
+            error: `SLUSHi recipes must have a base volume between ${SLUSHI_MIN_VOLUME}ml and ${SLUSHI_MAX_VOLUME}ml (current: ${baseVolume}ml)`,
+          });
+        }
+      }
+      
+      // Get or create tags
+      const tagRecords = await storage.getOrCreateTags(data.tags);
+      const tagIds = tagRecords.map((t) => t.id);
+      
+      const baseVolume = data.type === "slushi"
+        ? data.base_volume_ml || (data.ingredients as SlushiIngredient[]).reduce((sum, i) => sum + (i.amount_ml || 0), 0)
+        : null;
+      
+      const recipe = await storage.createRecipe(
+        {
+          name: data.name,
+          type: data.type,
+          imagePath: null,
+          ingredients: data.ingredients,
+          method: data.method,
+          notes: data.notes || null,
+          baseVolumeMl: baseVolume,
+          mode: data.mode || null,
+          favourite: false,
+        },
+        tagIds
+      );
+      
+      const recipeWithTags = await storage.getRecipeById(recipe.id);
+      
+      res.json({
+        success: true,
+        id: recipe.id,
+        recipe: recipeWithTags,
+      });
+    } catch (error) {
+      console.error("GPT API error:", error);
+      res.status(500).json({ error: "Failed to create recipe" });
+    }
+  });
+
+  // OpenAPI schema endpoint
+  app.get("/api/openapi.json", (req, res) => {
+    res.json(openApiSchema);
+  });
 
   return httpServer;
 }
+
+// OpenAPI schema for GPT Actions
+const openApiSchema = {
+  openapi: "3.1.0",
+  info: {
+    title: "Cocktail & SLUSHi Recipe Library API",
+    version: "1.0.0",
+    description: "API for creating recipes in the Cocktail & SLUSHi Recipe Library",
+  },
+  servers: [
+    {
+      url: "{server_url}",
+      variables: {
+        server_url: {
+          default: "https://your-replit-url.replit.app",
+          description: "The URL of the deployed Recipe Library",
+        },
+      },
+    },
+  ],
+  paths: {
+    "/api/gpt/recipes": {
+      post: {
+        operationId: "createRecipe",
+        summary: "Create a new cocktail or SLUSHi recipe",
+        description: "Creates a new recipe. SLUSHi recipes must have a base volume between 475ml and 1890ml.",
+        security: [{ apiKey: [] }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name", "type", "ingredients", "method"],
+                properties: {
+                  name: {
+                    type: "string",
+                    description: "Name of the recipe",
+                  },
+                  type: {
+                    type: "string",
+                    enum: ["cocktail", "slushi"],
+                    description: "Type of recipe",
+                  },
+                  tags: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "Tags for categorization",
+                  },
+                  ingredients: {
+                    oneOf: [
+                      {
+                        type: "array",
+                        description: "Cocktail ingredients (flexible text format)",
+                        items: {
+                          type: "object",
+                          required: ["text"],
+                          properties: {
+                            text: { type: "string", description: "Ingredient description (e.g., '50 ml gin')" },
+                          },
+                        },
+                      },
+                      {
+                        type: "array",
+                        description: "SLUSHi ingredients (structured with ml amounts)",
+                        items: {
+                          type: "object",
+                          required: ["name", "amount_ml"],
+                          properties: {
+                            name: { type: "string", description: "Ingredient name" },
+                            amount_ml: { type: "number", description: "Amount in milliliters" },
+                          },
+                        },
+                      },
+                    ],
+                  },
+                  method: {
+                    type: "array",
+                    items: { type: "string" },
+                    description: "List of method steps",
+                  },
+                  notes: {
+                    type: "string",
+                    description: "Optional notes about the recipe",
+                  },
+                  base_volume_ml: {
+                    type: "number",
+                    description: "Base volume for SLUSHi recipes (475-1890ml). If not provided, calculated from ingredients.",
+                  },
+                  mode: {
+                    type: "string",
+                    description: "Optional mode for SLUSHi recipes (e.g., 'Slush', 'Frozen Cocktail')",
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          "200": {
+            description: "Recipe created successfully",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    success: { type: "boolean" },
+                    id: { type: "string", description: "ID of created recipe" },
+                    recipe: { type: "object", description: "The created recipe with tags" },
+                  },
+                },
+              },
+            },
+          },
+          "400": {
+            description: "Validation error",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    error: { type: "string" },
+                    details: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          path: { type: "string" },
+                          message: { type: "string" },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+          "401": {
+            description: "Invalid API key",
+          },
+        },
+      },
+    },
+  },
+  components: {
+    securitySchemes: {
+      apiKey: {
+        type: "apiKey",
+        in: "header",
+        name: "X-API-Key",
+        description: "API key for GPT Actions authentication",
+      },
+    },
+  },
+};
