@@ -422,6 +422,7 @@ const openApiSchema = {
             description: "Ingredient description (e.g., '50 ml gin', '2 dashes bitters')",
           },
         },
+        additionalProperties: false,
       },
       SlushiIngredient: {
         type: "object",
@@ -436,6 +437,23 @@ const openApiSchema = {
             description: "Amount in milliliters",
           },
         },
+        additionalProperties: false,
+      },
+      CocktailIngredients: {
+        type: "array",
+        minItems: 1,
+        items: {
+          $ref: "#/components/schemas/CocktailIngredient",
+        },
+        description: "Array of cocktail ingredients. Each ingredient is a free-text description line (e.g., '50 ml gin', '2 dashes bitters').",
+      },
+      SlushiIngredients: {
+        type: "array",
+        minItems: 1,
+        items: {
+          $ref: "#/components/schemas/SlushiIngredient",
+        },
+        description: "Array of SLUSHi ingredients. Each ingredient must be a liquid with name and amount_ml. Total volume must be 475-1890ml.",
       },
       CreateRecipeRequest: {
         type: "object",
@@ -456,16 +474,11 @@ const openApiSchema = {
             description: "Tags for categorization (e.g., 'rum', 'refreshing', 'summer')",
           },
           ingredients: {
-            type: "array",
-            description: "For cocktails: array of {text} objects. For slushi: array of {name, amount_ml} objects.",
-            items: {
-              type: "object",
-              properties: {
-                text: { type: "string" },
-                name: { type: "string" },
-                amount_ml: { type: "number" },
-              },
-            },
+            description: "Ingredients list. For type='cocktail', use CocktailIngredients (array of {text}). For type='slushi', use SlushiIngredients (array of {name, amount_ml}).",
+            oneOf: [
+              { $ref: "#/components/schemas/CocktailIngredients" },
+              { $ref: "#/components/schemas/SlushiIngredients" },
+            ],
           },
           method: {
             type: "array",
