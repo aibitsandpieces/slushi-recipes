@@ -1,0 +1,157 @@
+Build a private “Cocktail & SLUSHi Recipe Library” web app that runs in Replit.
+
+GOAL
+A lightweight private app where we can:
+1) Add cocktail and SLUSHi recipes with an image
+2) Browse recipes in a clean gallery
+3) Search recipes by text and by tags
+4) Open a recipe to see ingredients and method
+5) For SLUSHi recipes, scale the recipe to a target volume within the Ninja SLUSHi’s valid range
+6) Support saving SLUSHi recipes into the app from a Custom GPT using an HTTP API endpoint suitable for GPT Actions
+
+NON-GOALS (do not over engineer)
+- No multi-user roles, invitations, social sharing, public pages, complex analytics
+- No advanced sugar science calculations, no brix/freezing point modelling
+- No complex workflow builders or heavy admin consoles
+
+PRIVATE ACCESS
+- Add a simple access mechanism suitable for private use (for example a single shared password or a single user account). Keep it minimal.
+
+DATA MODEL
+Support two recipe types:
+A) Cocktail (standard)
+B) SLUSHi (Ninja SLUSHi compatible)
+
+Each recipe must store at minimum:
+- id
+- name (string)
+- type (enum: "cocktail" or "slushi")
+- image (uploaded file)
+- tags (multiple)
+- ingredients (list)
+- method (list of steps)
+- notes (optional)
+- created_at / updated_at timestamps
+- favourite flag (optional but recommended)
+
+For Cocktail ingredients:
+- allow flexible text amounts (eg “50 ml gin”, “1 dash bitters”, “top up soda”)
+
+For SLUSHi ingredients:
+- only liquid ingredients should be represented with numeric volume in ml
+- store base_volume_ml (the total volume of the recipe as written)
+
+SLUSHi CONSTRAINTS (must be enforced in UI and API)
+- Minimum batch volume: 475 ml
+- Maximum batch volume: 1890 ml
+- Recipes must not include ice or solid ingredients (treat this as a validation rule)
+- If a SLUSHi recipe is outside min/max volume, block saving and show a clear error
+
+CORE SCREENS / UX
+1) Browse
+- Show a responsive grid of recipe cards with image, name, and tags as chips
+- Provide a search bar that searches name + ingredients text
+- Provide tag filtering using clickable chips
+- Provide a type filter: All / Cocktail / SLUSHi
+- Provide a “Favourites” toggle or tab (optional but recommended)
+
+2) Add Recipe
+- Form to add a recipe with:
+  - name
+  - type selector (cocktail/slushi)
+  - tags input supporting typing + enter, and autosuggest existing tags
+  - image upload with consistent cropping/aspect ratio handling so the grid looks tidy
+  - ingredients input:
+      - Cocktail: lines or list items (free text)
+      - SLUSHi: structured list of {ingredient name, amount_ml} and auto-calc base_volume_ml
+  - method steps input
+  - notes field
+- Validation errors must be clear and specific
+
+3) Recipe Detail
+- Display large image, name, tags, type
+- Show ingredients prominently (immediately visible)
+- Show method steps
+- Show notes
+- Favourite button
+
+SLUSHi SCALING FEATURE
+On SLUSHi recipe detail page:
+- Provide a “Target volume (ml)” input and/or slider
+- Clamp/limit target volume to 475–1890 ml
+- Compute scale factor = target_volume_ml / base_volume_ml
+- Display scaled ingredient amounts in ml (rounded sensibly)
+- Keep the original recipe visible as well, or provide a clear toggle between base and scaled
+- Do not attempt complicated sugar calculations; optionally show a simple note reminding that sufficient sugar is required for slushing
+
+TAGS
+- Tags must be creatable during recipe creation (no separate admin needed)
+- Tags must be searchable/filterable
+- Clicking a tag anywhere should show recipes filtered to that tag
+- Implement tag autosuggest based on existing tags
+
+GPT ACTIONS INTEGRATION (Option A)
+Expose a minimal HTTP API to allow a Custom GPT Action to save recipes into the app.
+
+Requirements:
+- POST /api/recipes
+  - Accept JSON body for recipe creation
+  - Must support both types: cocktail and slushi
+  - Must validate SLUSHi constraints (475–1890 ml, liquid-only)
+  - Must accept tags as an array of strings (create tags if missing)
+  - Must accept ingredients and method in structured form
+  - Return created recipe id and canonical stored record
+
+- Authentication for API:
+  - Use a simple shared secret token (for example an API key in a header) suitable for private use
+
+Provide an OpenAPI schema file (or equivalent) describing this endpoint so it can be copied into GPT Actions.
+
+INPUT/OUTPUT SHAPE FOR /api/recipes
+Support payload like:
+{
+  "name": "string",
+  "type": "cocktail|slushi",
+  "tags": ["tag1","tag2"],
+  "ingredients": [...],
+  "method": ["step1","step2"],
+  "notes": "optional",
+  "base_volume_ml": 950,             // required for slushi, ignored for cocktail if not present
+  "mode": "Slush|Frozen Cocktail|..." // optional for slushi
+}
+
+For cocktail ingredients allow:
+- { "text": "50 ml gin" }
+
+For slushi ingredients require:
+- { "name": "White rum", "amount_ml": 250 }
+
+IMAGES
+- Image upload must work for manual app usage
+- For the GPT Actions endpoint, image is optional (can be added later via UI)
+
+QUALITY BAR
+- The app must be stable, fast, and simple
+- Clean, uncluttered interface
+- Consistent image display in browse grid
+- Clear error messages
+- Data persists between restarts using an appropriate lightweight database
+
+DELIVERABLES
+- Working web app with the screens and features above
+- Database persistence
+- API endpoint + OpenAPI schema for GPT Actions
+- Basic instructions in README for:
+  - running the app
+  - setting the shared password / login (if used)
+  - setting the API key for GPT Actions
+  - where images are stored
+
+ACCEPTANCE CHECKS (must pass)
+1) I can add a cocktail recipe with a photo and tags, then find it by searching and by clicking a tag.
+2) I can add a SLUSHi recipe and the app rejects it if base volume is <475 ml or >1890 ml.
+3) On a SLUSHi recipe page, entering a target volume in range correctly scales all ml amounts.
+4) POST /api/recipes with a valid SLUSHi payload creates a recipe; an invalid payload returns a clear validation error.
+5) The browse grid looks tidy with consistent images.
+
+Do not add extra features beyond what is described unless they are necessary to satisfy these requirements.
