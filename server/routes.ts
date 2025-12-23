@@ -342,9 +342,9 @@ export async function registerRoutes(
   return httpServer;
 }
 
-// OpenAPI 3.0.3 schema for ChatGPT Actions (servers array is set dynamically in the endpoint)
+// OpenAPI 3.1.0 schema for ChatGPT Actions (servers array is set dynamically in the endpoint)
 const openApiSchema = {
-  openapi: "3.0.3",
+  openapi: "3.1.0",
   info: {
     title: "Cocktail & SLUSHi Recipe Library API",
     version: "1.0.0",

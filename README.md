@@ -48,7 +48,7 @@ This section contains everything you need to configure a ChatGPT Custom GPT Acti
 | Setting | Value |
 |---------|-------|
 | **Schema URL** | `https://your-app.replit.app/api/openapi.json` |
-| **OpenAPI Version** | 3.0.3 |
+| **OpenAPI Version** | 3.1.0 |
 | **Authentication** | API Key in header |
 | **Header Name** | `X-API-Key` |
 | **Endpoint** | `POST /api/gpt/recipes` |
