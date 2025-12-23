@@ -1,0 +1,56 @@
+I need you to prepare this app so it can be called securely by a Custom GPT Action.
+
+Your task is to expose and clearly document the connection details I need.
+
+REQUIREMENTS
+
+1) PUBLIC BASE URL
+- Ensure the app is reachable via a public HTTPS URL when running.
+- Identify and clearly state the base URL that external services should use to call the API.
+- This base URL must work for POST requests from outside Replit.
+
+2) API AUTHENTICATION
+- Implement a simple API key authentication mechanism suitable for private use.
+- The API key must be required for all requests to POST /api/recipes.
+- The API key must be read from an environment variable so it is not hardcoded.
+
+- Choose ONE of the following header formats (your choice):
+  a) Authorization: Bearer <API_KEY>
+  b) X-API-Key: <API_KEY>
+
+3) API RESPONSE BEHAVIOUR
+- If the API key is missing or invalid, return a clear 401 or 403 response.
+- If the request payload is invalid, return a clear validation error.
+- If successful, return the created recipe record and its ID.
+
+4) OPENAPI SCHEMA
+- Produce an OpenAPI (v3) schema that fully documents:
+  - POST /api/recipes
+  - Required headers (including the API key)
+  - Request body structure
+  - Response structure
+- Ensure the schema includes a `servers` section pointing to the public base URL.
+
+5) DOCUMENTATION OUTPUT
+- Update the README with a section titled “Custom GPT Integration”.
+- In that section, explicitly list:
+  - The public base URL
+  - The full endpoint path for recipe creation
+  - Which header is used for authentication
+  - The exact environment variable name used for the API key
+  - A short example request (headers + JSON body)
+
+IMPORTANT CONSTRAINTS
+- Do NOT add extra endpoints beyond what is needed.
+- Do NOT add OAuth, user accounts, or complex auth flows.
+- Do NOT expose the API key in code or logs.
+- Focus on clarity and correctness rather than cleverness.
+
+ACCEPTANCE CHECK
+I should be able to copy:
+- the base URL
+- the endpoint path
+- the header name
+- the OpenAPI schema
+
+…and paste them directly into a Custom GPT Action configuration without guessing anything.
