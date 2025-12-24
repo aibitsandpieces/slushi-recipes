@@ -9,6 +9,30 @@ import { pool } from "./db";
 const app = express();
 const httpServer = createServer(app);
 
+// CORS middleware for ChatGPT Custom GPT Actions
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    "https://chat.openai.com",
+    "https://chatgpt.com",
+    "https://gpt-api.openai.com",
+  ];
+  
+  if (origin && allowedOrigins.includes(origin)) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization");
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  }
+  
+  // Handle preflight OPTIONS requests
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  
+  next();
+});
+
 declare module "http" {
   interface IncomingMessage {
     rawBody: unknown;
