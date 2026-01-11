@@ -67,6 +67,16 @@ export async function registerRoutes(
     }
   });
 
+  // Test route to verify Vercel routing is working
+  app.get("/api/test", (req, res) => {
+    res.json({
+      message: "Vercel routing works!",
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
+      appPassword: process.env.APP_PASSWORD ? "SET" : "NOT SET"
+    });
+  });
+
   // Auth routes
   app.post("/api/auth/login", (req, res) => {
     const { password } = req.body;
