@@ -139,18 +139,19 @@ async function initializeApp() {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
   }
+
+  return app;
 }
 
-// Initialize the app immediately
-initializeApp().catch(console.error);
-
-// For development, start the server
-if (process.env.NODE_ENV !== "production") {
-  const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(port, "localhost", () => {
-    log(`serving on port ${port}`);
-  });
+// For serverless (Vercel), export a promise that resolves to the initialized app
+if (process.env.NODE_ENV === "production") {
+  module.exports = initializeApp();
+} else {
+  // For development, initialize and start the server
+  initializeApp().then(() => {
+    const port = parseInt(process.env.PORT || "5000", 10);
+    httpServer.listen(port, "localhost", () => {
+      log(`serving on port ${port}`);
+    });
+  }).catch(console.error);
 }
-
-// Export the app for Vercel serverless functions (CommonJS)
-module.exports = app;
