@@ -145,9 +145,31 @@ async function initializeApp() {
   return app;
 }
 
-// For serverless (Vercel), export a promise that resolves to the initialized app
+// For serverless environments, create a wrapper that ensures initialization
 if (process.env.NODE_ENV === "production") {
-  module.exports = initializeApp();
+  let isInitialized = false;
+  let initPromise: Promise<any>;
+
+  // Create a wrapper app that waits for initialization
+  const serverlessApp = (req: any, res: any) => {
+    if (!initPromise) {
+      initPromise = initializeApp();
+    }
+
+    if (!isInitialized) {
+      initPromise.then(() => {
+        isInitialized = true;
+        app(req, res);
+      }).catch((error) => {
+        console.error("Initialization error:", error);
+        res.status(500).json({ error: "Server initialization failed" });
+      });
+    } else {
+      app(req, res);
+    }
+  };
+
+  module.exports = serverlessApp;
 } else {
   // For development, initialize and start the server
   initializeApp().then(() => {
