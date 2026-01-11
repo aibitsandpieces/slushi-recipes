@@ -2,6 +2,8 @@
 
 A private web app for managing cocktail and SLUSHi (Ninja SLUSHi) recipes with image uploads, tag-based organization, and recipe scaling.
 
+> **Now deployed on Vercel with Supabase backend!** 🚀
+
 ## Features
 
 - Add and manage cocktail and SLUSHi recipes with images
