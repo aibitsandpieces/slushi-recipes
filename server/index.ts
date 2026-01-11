@@ -57,11 +57,13 @@ if (process.env.NODE_ENV === "production") {
 
 app.use(
   session({
-    store: new PgSession({
-      pool,
-      tableName: "session",
-      createTableIfMissing: true,
-    }),
+    // Temporarily use memory store for serverless compatibility
+    // TODO: Fix PostgreSQL session store for production
+    // store: new PgSession({
+    //   pool,
+    //   tableName: "session",
+    //   createTableIfMissing: true,
+    // }),
     secret: process.env.SESSION_SECRET || "cocktails-recipe-library-secret",
     resave: false,
     saveUninitialized: false,
