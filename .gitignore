@@ -1,6 +1,32 @@
-node_modules
-dist
-.DS_Store
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Production builds
+dist/
+build/
 server/public
+
+# Environment variables (IMPORTANT!)
+.env
+.env.local
+.env.development.local
+.env.production.local
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Editor files
+.vscode/
+.idea/
+
+# Build files
 vite.config.ts.*
 *.tar.gz
+
+# Local uploads (we use Supabase now)
+uploads/

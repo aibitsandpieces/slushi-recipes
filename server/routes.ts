@@ -8,7 +8,7 @@ import path from "path";
 import fs from "fs";
 import session from "express-session";
 import { z } from "zod";
-import { registerObjectStorageRoutes, ObjectStorageService } from "./replit_integrations/object_storage";
+import { supabaseStorage } from "./supabase-storage";
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(process.cwd(), "uploads");
@@ -16,15 +16,9 @@ if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
 
-// Configure multer for image uploads
+// Configure multer for image uploads (memory storage for Supabase)
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: uploadsDir,
-    filename: (req, file, cb) => {
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-      cb(null, uniqueSuffix + path.extname(file.originalname));
-    },
-  }),
+  storage: multer.memoryStorage(), // Store in memory for Supabase upload
   fileFilter: (req, file, cb) => {
     const allowedTypes = ["image/jpeg", "image/png", "image/gif", "image/webp"];
     if (allowedTypes.includes(file.mimetype)) {
@@ -61,8 +55,7 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  // Register object storage routes for persistent image storage
-  registerObjectStorageRoutes(app);
+  // Note: Supabase storage is now used instead of Replit object storage
   
   // Serve uploaded images (legacy local storage - fallback for old images)
   app.use("/uploads", (req, res, next) => {
@@ -154,10 +147,16 @@ export async function registerRoutes(
       const tagRecords = await storage.getOrCreateTags(parsedTags);
       const tagIds = tagRecords.map((t) => t.id);
       
-      // Handle image path - support both object storage paths and legacy file uploads
+      // Handle image upload to Supabase Storage
       let imagePath = imagePathFromBody || null;
       if (req.file) {
-        imagePath = `/uploads/${req.file.filename}`;
+        try {
+          const uploadResult = await supabaseStorage.uploadFile(req.file);
+          imagePath = uploadResult.url; // Use the public URL
+        } catch (uploadError) {
+          console.error("Image upload error:", uploadError);
+          return res.status(500).json({ error: "Failed to upload image" });
+        }
       }
       
       const recipe = await storage.createRecipe(
@@ -205,10 +204,16 @@ export async function registerRoutes(
       const tagRecords = await storage.getOrCreateTags(parsedTags);
       const tagIds = tagRecords.map((t) => t.id);
       
-      // Handle image path - support both object storage paths and legacy file uploads
+      // Handle image upload to Supabase Storage
       let imagePath = imagePathFromBody || null;
       if (req.file) {
-        imagePath = `/uploads/${req.file.filename}`;
+        try {
+          const uploadResult = await supabaseStorage.uploadFile(req.file);
+          imagePath = uploadResult.url; // Use the public URL
+        } catch (uploadError) {
+          console.error("Image upload error:", uploadError);
+          return res.status(500).json({ error: "Failed to upload image" });
+        }
       }
       
       const recipe = await storage.updateRecipe(
