@@ -12,12 +12,24 @@
   ],
   "routes": [
     {
+      "src": "/dist/public/(.*)",
+      "dest": "/dist/public/$1"
+    },
+    {
       "src": "/api/(.*)",
       "dest": "/dist/index.cjs"
     },
     {
-      "src": "/(.*)",
+      "src": "/uploads/(.*)",
+      "dest": "/dist/index.cjs"
+    },
+    {
+      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg))",
       "dest": "/dist/public/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/index.cjs"
     }
   ]
 }
