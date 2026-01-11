@@ -70,6 +70,15 @@ export async function registerRoutes(
   // Auth routes
   app.post("/api/auth/login", (req, res) => {
     const { password } = req.body;
+
+    // Debug logging for troubleshooting
+    console.log("=== LOGIN DEBUG ===");
+    console.log("Received password:", password);
+    console.log("Expected APP_PASSWORD:", APP_PASSWORD);
+    console.log("Environment APP_PASSWORD:", process.env.APP_PASSWORD);
+    console.log("Request body:", req.body);
+    console.log("===================");
+
     if (password === APP_PASSWORD) {
       req.session.authenticated = true;
       res.json({ success: true });
