@@ -1,0 +1,11 @@
+# Supabase Configuration
+DATABASE_URL=postgresql://postgres.tguhrcmgxmdvqkjebtxa:dby@wjw3vbw_fbh5FRW@aws-0-us-east-1.pooler.supabase.com:6543/postgres
+SUPABASE_URL=https://tguhrcmgxmdvqkjebtxa.supabase.co
+SUPABASE_ANON_KEY=sb_publishable_o-GClka_CuFP8K7PgxzVwA_Ui8gUYw2
+
+# App Configuration
+SESSION_SECRET=your-session-secret-for-production
+APP_PASSWORD=family123
+API_KEY=recipe-api-key-123
+NODE_ENV=production
+FILE_STORAGE_PROVIDER=supabase

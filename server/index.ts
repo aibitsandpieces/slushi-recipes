@@ -20,19 +20,19 @@ app.use((req, res, next) => {
     "https://chatgpt.com",
     "https://gpt-api.openai.com",
   ];
-  
+
   if (origin && allowedOrigins.includes(origin)) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-API-Key, Authorization");
     res.setHeader("Access-Control-Allow-Credentials", "true");
   }
-  
+
   // Handle preflight OPTIONS requests
   if (req.method === "OPTIONS") {
     return res.sendStatus(204);
   }
-  
+
   next();
 });
 
@@ -50,7 +50,7 @@ declare module "express-session" {
 
 const PgSession = connectPgSimple(session);
 
-// Trust proxy for production (Replit uses reverse proxies)
+// Trust proxy for production (Vercel uses reverse proxies)
 if (process.env.NODE_ENV === "production") {
   app.set("trust proxy", 1);
 }
@@ -121,7 +121,7 @@ app.use((req, res, next) => {
   next();
 });
 
-(async () => {
+async function initializeApp() {
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
@@ -132,28 +132,25 @@ app.use((req, res, next) => {
     throw err;
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Setup static serving for production
   if (process.env.NODE_ENV === "production") {
     serveStatic(app);
   } else {
     const { setupVite } = await import("./vite");
     await setupVite(httpServer, app);
   }
+}
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+// Initialize the app immediately
+initializeApp().catch(console.error);
+
+// For development, start the server
+if (process.env.NODE_ENV !== "production") {
   const port = parseInt(process.env.PORT || "5000", 10);
-  httpServer.listen(
-    {
-      port,
-      host: process.env.NODE_ENV === "production" ? "0.0.0.0" : "localhost",
-    },
-    () => {
-      log(`serving on port ${port}`);
-    },
-  );
-})();
+  httpServer.listen(port, "localhost", () => {
+    log(`serving on port ${port}`);
+  });
+}
+
+// Export the app for Vercel serverless functions (CommonJS)
+module.exports = app;
