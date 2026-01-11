@@ -1,35 +1,14 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "dist/index.cjs",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "dist/public/**",
-      "use": "@vercel/static"
+  "functions": {
+    "api/index.js": {
+      "runtime": "@vercel/node@3.2.21"
     }
-  ],
+  },
   "routes": [
     {
-      "src": "/dist/public/(.*)",
-      "dest": "/dist/public/$1"
-    },
-    {
-      "src": "/api/(.*)",
-      "dest": "/dist/index.cjs"
-    },
-    {
-      "src": "/uploads/(.*)",
-      "dest": "/dist/index.cjs"
-    },
-    {
-      "src": "/(.*\\.(js|css|png|jpg|jpeg|gif|ico|svg))",
-      "dest": "/dist/public/$1"
-    },
-    {
       "src": "/(.*)",
-      "dest": "/dist/index.cjs"
+      "dest": "/api/index.js"
     }
   ]
 }
