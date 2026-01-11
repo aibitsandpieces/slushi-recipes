@@ -1,40 +1,23 @@
 {
   "version": 2,
-  "buildCommand": "npm run build",
-  "devCommand": "npm run dev",
-  "installCommand": "npm install",
-  "outputDirectory": "dist/public",
-
-  "functions": {
-    "server/index.ts": {
-      "runtime": "nodejs20.x"
-    }
-  },
-
-  "rewrites": [
+  "builds": [
     {
-      "source": "/api/(.*)",
-      "destination": "/server/index.ts"
+      "src": "dist/index.cjs",
+      "use": "@vercel/node"
     },
     {
-      "source": "/(.*)",
-      "destination": "/dist/public/index.html"
+      "src": "dist/public/**",
+      "use": "@vercel/static"
     }
   ],
-
-  "headers": [
+  "routes": [
     {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "X-Frame-Options",
-          "value": "DENY"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        }
-      ]
+      "src": "/api/(.*)",
+      "dest": "/dist/index.cjs"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/dist/public/$1"
     }
   ]
 }
